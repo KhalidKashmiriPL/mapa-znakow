@@ -109,7 +109,7 @@
       document.getElementById("toggleDirectionHide").textContent = hideDirection ? "Pokaż znaki z direction" : "Ukryj znaki z direction";
     }
 
-    document.getElementById("hideOutsideCheckbox").addEventListener("change", () => {
+    document.getElementById("hideOutsideCheckbox").addEventListener("change", (event) => {
       hideOutside = event.target.checked;
       aktualizujWidocznośćZnaków();
     });
@@ -236,12 +236,15 @@
           continue;
         }
 
-        const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes("nieznany.png"));
-        const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
-        const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
+        const obrazki = [...obj.wrapper.querySelectorAll("img")];
+        obrazki.forEach(img => {
+          const jestNieznany = img.src.includes("nieznany.png");
+          const ukrytyPrzezBlad = hideErrors && jestNieznany;
+          const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
 
-        obj.wrapper.style.opacity = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "0" : "1";
-        obj.wrapper.style.pointerEvents = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "none" : "auto";
+          img.style.opacity = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "0" : "1";
+          img.style.pointerEvents = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "none" : "auto";
+        });
       }
     }
 
@@ -254,7 +257,8 @@
 
         znakiMarkery.forEach(obj => {
           if (szukane.length === 0) {
-            const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes("nieznany.png"));
+            const obrazki = [...obj.wrapper.querySelectorAll("img")];
+            const zawieraNieznany = obrazki.some(img => img.src.includes("nieznany.png"));
             const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
             const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
 
