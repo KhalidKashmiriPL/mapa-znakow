@@ -202,11 +202,13 @@
           let totalHeight = 0;
 
            znaki.forEach(znak => {
-            const img = document.createElement("img");
-            img.src = "mapa-znakow/" + znak + ".png";
-            img.onerror = function () {
-              this.onerror = null;
-              this.src = "mapa-znakow/nieznany.png";
+           const img = document.createElement("img");
+           const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
+          img.src = baseImgUrl + znak + ".png";
+          img.onerror = function () {
+          this.onerror = null;
+          this.src = baseImgUrl + "nieznany.png";
+          };
             };
 
             let width = "25px";
