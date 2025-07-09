@@ -62,7 +62,21 @@
     #toggleDirection { top: 10px; right: 10px; }
     #toggleError { top: 60px; right: 10px; }
     #toggleDirectionHide { top: 110px; right: 10px; }
-    #loadSignsButton { top: 160px; right: 10px; }
+    #loadSignsButton {
+  top: 160px;
+  right: 10px;
+  background-color: #e63946; /* czerwony */
+  color: #fff; /* biały tekst dla kontrastu */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 2px 5px rgba(230, 57, 70, 0.5);
+  transition: background-color 0.3s ease;
+}
+#loadSignsButton:hover {
+  background-color: #f28b82; /* jaśniejszy czerwony */
+}
   </style>
 </head>
 <body>
