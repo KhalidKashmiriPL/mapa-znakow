@@ -203,10 +203,10 @@
 
           znaki.forEach(znak => {
             const img = document.createElement("img");
-            img.src = "znaki/" + znak + ".png";
+            img.src = znak + ".png";
             img.onerror = function () {
               this.onerror = null;
-              this.src = "znaki/nieznany.png";
+              this.src = nieznany.png";
             };
 
             let width = "25px";
