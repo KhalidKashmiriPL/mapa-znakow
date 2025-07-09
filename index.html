@@ -201,12 +201,12 @@
 
           let totalHeight = 0;
 
-          znaki.forEach(znak => {
+           znaki.forEach(znak => {
             const img = document.createElement("img");
-            img.src = znak + ".png";
+            img.src = "mapa-znakow/" + znak + ".png";
             img.onerror = function () {
               this.onerror = null;
-              this.src = nieznany.png";
+              this.src = "mapa-znakow/nieznany.png";
             };
 
             let width = "25px";
