@@ -39,9 +39,9 @@
       gap: 6px;
     }
     #searchInput {
-      font-size: 18px;
+      font-size: 14px;
       padding: 6px 12px;
-      width: 400px;
+      width: 500px;
     }
     #hideOutsideCheckboxLabel {
       font-size: 14px;
@@ -83,7 +83,7 @@
   <div class="version-label">v0.1.5</div>
 
   <div class="search-container">
-    <input type="text" id="searchInput" placeholder="Wpisz kod(y) znaków np. &quot;D-6b&quot; lub &quot;D-6b, A-7&quot;" />
+    <input type="text" id="searchInput" placeholder="Wpisz kod(y) znaków np. &quot;D-6b&quot; lub &quot;D-6b, A-7&quot; aby wyszukać" />
     <label id="hideOutsideCheckboxLabel">
       <input type="checkbox" id="hideOutsideCheckbox" />
       Ukryj znaki poza ekranem
@@ -198,7 +198,7 @@
             let width = "25px";
             if (["T-25a", "T-25b", "T-25c"].some(x => znak.includes(x))) width = "10px";
             else if (["F-6", "F-10"].some(x => znak.includes(x))) width = "40px";
-            else if (["T-18", "T-24"].some(x => znak.includes(x))) width = "20px";
+            else if (["T-18", "T-24", "T-27"].some(x => znak.includes(x))) width = "20px";
 
             img.style.width = width;
             img.style.marginBottom = "2px";
