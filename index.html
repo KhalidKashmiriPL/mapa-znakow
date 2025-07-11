@@ -5,7 +5,13 @@
   <title>Mapa znaków</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
+    body { margin: 0; }
+    #map { height: 100vh; }
+
+    .rotated {
+      transition: transform 0.5s ease;
+      transform-origin: center center;
+    }
 
     .version-label {
       position: absolute;
@@ -18,83 +24,184 @@
       padding: 2px 6px;
       border-radius: 4px;
     }
-    #map { height: 100vh; }
-    .rotated {
-      transition: transform 0.5s ease;
-      transform-origin: center center;
-    }
-    .search-container {
+
+    .control-panel {
       position: absolute;
       top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
+      right: 10px;
       z-index: 9999;
-      background: rgba(255,255,255,0.9);
-      padding: 8px 12px;
-      border-radius: 6px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.15);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+      font-family: sans-serif;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 6px;
+      gap: 8px;
+      max-width: 260px;
     }
-    #searchInput {
-      font-size: 14px;
-      padding: 6px 12px;
-      width: 400px;
+
+    .control-panel input[type="text"] {
+      padding: 6px 10px;
+      font-size: 16px;
+      width: 100%;
     }
-    #hideOutsideCheckboxLabel {
+
+    .control-panel label {
       font-size: 14px;
       user-select: none;
-      color: #000;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    #toggleError, #toggleDirection, #loadSignsButton, #toggleDirectionHide {
-      position: absolute;
-      z-index: 9999;
-      font-size: 1em;
-      padding: 12px 26px;
-      white-space: nowrap;
+
+    .control-panel button {
+      padding: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
-    #toggleDirection { top: 10px; right: 10px; }
-    #toggleError { top: 60px; right: 10px; }
-    #toggleDirectionHide { top: 110px; right: 10px; }
+
+    /* Domyślne style dla przycisku Wczytaj znaki z widoku (czerwony) */
     #loadSignsButton {
-  top: 160px;
-  right: 10px;
-  background-color: #e63946; /* czerwony */
-  color: #fff; /* biały tekst dla kontrastu */
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-  box-shadow: 0 2px 5px rgba(230, 57, 70, 0.5);
-  transition: background-color 0.3s ease;
-}
-#loadSignsButton:hover {
-  background-color: #f28b82; /* jaśniejszy czerwony */
-}
+        background-color: #e63946; /* Czerwony */
+        color: white;
+    }
+
+    #loadSignsButton:hover {
+        background-color: #f28b82; /* Jaśniejszy czerwony na hover */
+    }
+
+    /* Style dla przycisków cyjanowych (Ukryj błędne znaki, Ukryj znaki z direction) */
+    .cyan-toggle-button {
+        background-color: #00a4ba; /* Cyjan */
+        color: white;
+    }
+
+    .cyan-toggle-button:hover {
+        background-color: #3ed4e8; /* Jaśniejszy cyjan na hover */
+    }
+
+    .cyan-toggle-button.active {
+        background-color: #8bf1ff; /* Bardzo jasny cyjan (prawie biały) gdy aktywny */
+        color: white; /* Ciemniejszy tekst dla kontrastu */
+    }
+    
+    #detailsModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+
+    #detailsContent {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      display: flex;
+      max-width: 800px;
+      width: 90%;
+      height: 400px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      font-family: sans-serif;
+      position: relative;
+    }
+
+    #detailsImages {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+    }
+
+    #detailsImages img {
+      width: 80px;
+      margin-bottom: 10px;
+    }
+
+    #detailsTags {
+      flex: 2;
+      padding-left: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      white-space: pre-wrap;
+      overflow-y: auto;
+    }
+
+    #closeDetails {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      color: #333;
+    }
+    #detailsTags .osm-link {
+        font-weight: bold;
+        color: #007bff;
+        text-decoration: none;
+        font-size: 24px;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+
+    /* Style dla wyszukiwarki */
+    .search-container {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        background: rgba(255,255,255,0.9);
+        padding: 8px 12px;
+        border-radius: 6px;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+    #searchInput {
+        font-size: 18px;
+        padding: 6px 12px;
+        width: 400px;
+    }
   </style>
 </head>
 <body>
-  <div class="version-label">v0.1.5</div>
+  <div id="map"></div>
+  <div class="version-label">v0.1.6</div>
 
-  <div class="search-container">
-    <input type="text" id="searchInput" placeholder="Wpisz kod(y) znaków np. &quot;D-6b&quot; lub &quot;D-6b, A-7&quot; aby wyszukać" />
-    <label id="hideOutsideCheckboxLabel">
-      <input type="checkbox" id="hideOutsideCheckbox" />
-      Ukryj znaki poza ekranem
-    </label>
+    <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Wpisz kod(y) znaków np. &quot;D-6b&quot; lub &quot;D-6b, A-7&quot;" />
   </div>
 
-  <button id="toggleDirection">Wyłącz direction</button>
-  <button id="toggleError">Ukryj błędne</button>
-  <button id="toggleDirectionHide">Ukryj znaki z direction</button>
-  <button id="loadSignsButton">Wczytaj znaki z widoku</button>
-  <div id="map"></div>
+  <div class="control-panel">
+    <button id="toggleError" class="cyan-toggle-button">Ukryj błędne znaki</button>
+    <button id="toggleDirectionHide" class="cyan-toggle-button">Ukryj znaki z direction</button>
+    <label><input type="checkbox" id="hideOutsideCheckbox" /> Ukrywaj znaki poza ekranem</label>
+    <label><input type="checkbox" id="rotateCheckbox" checked /> Obracaj znaki</label>
+    <button id="loadSignsButton">Wczytaj znaki z widoku</button>
+  </div>
+
+  <div id="detailsModal">
+    <div id="detailsContent">
+      <button id="closeDetails">&times;</button>
+      <div id="detailsImages"></div>
+      <div id="detailsTags"></div>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -105,52 +212,77 @@
       maxZoom: 22
     }).addTo(map);
 
+    const znakiMarkery = [];
+    const wczytaneID = new Set();
+
     let directionEnabled = true;
     let hideErrors = false;
     let hideDirection = false;
     let hideOutside = false;
 
-    const znakiMarkery = [];
-    const wczytaneID = new Set();
+    // Bazowy URL do obrazków znaków
+    const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
 
-    function aktualizujPrzyciskDirection() {
-      document.getElementById("toggleDirection").textContent = directionEnabled ? "Wyłącz direction" : "Włącz direction";
-    }
-    function aktualizujPrzyciskError() {
-      document.getElementById("toggleError").textContent = hideErrors ? "Pokaż błędne" : "Ukryj błędne";
-    }
-    function aktualizujPrzyciskDirectionHide() {
-      document.getElementById("toggleDirectionHide").textContent = hideDirection ? "Pokaż znaki z direction" : "Ukryj znaki z direction";
+    const toggleErrorButton = document.getElementById("toggleError");
+    const toggleDirectionHideButton = document.getElementById("toggleDirectionHide");
+
+    // Funkcja do aktualizacji wyglądu przycisków
+    function updateButtonAppearance(button, isActive) {
+      if (isActive) {
+        button.classList.add("active");
+      } else {
+        button.classList.remove("active");
+      }
     }
 
-    document.getElementById("hideOutsideCheckbox").addEventListener("change", (event) => {
-      hideOutside = event.target.checked;
+    // Inicjalne ustawienie wyglądu przycisków
+    updateButtonAppearance(toggleErrorButton, hideErrors);
+    updateButtonAppearance(toggleDirectionHideButton, hideDirection);
+
+    document.getElementById("hideOutsideCheckbox").onchange = e => {
+      hideOutside = e.target.checked;
       aktualizujWidocznośćZnaków();
-    });
-    document.getElementById("toggleDirection").onclick = () => {
-      directionEnabled = !directionEnabled;
-      aktualizujPrzyciskDirection();
+    };
+
+    // Obsługa kliknięcia przycisku "Ukryj błędne znaki"
+    toggleErrorButton.onclick = () => {
+      hideErrors = !hideErrors; // Przełącz stan
+      updateButtonAppearance(toggleErrorButton, hideErrors); // Zaktualizuj wygląd przycisku
+      aktualizujWidocznośćZnaków();
+    };
+
+    // Obsługa kliknięcia przycisku "Ukryj znaki z direction"
+    toggleDirectionHideButton.onclick = () => {
+      hideDirection = !hideDirection; // Przełącz stan
+      updateButtonAppearance(toggleDirectionHideButton, hideDirection); // Zaktualizuj wygląd przycisku
+      aktualizujWidocznośćZnaków();
+    };
+
+    document.getElementById("rotateCheckbox").onchange = e => {
+      directionEnabled = e.target.checked;
       znakiMarkery.forEach(obj => {
-        obj.wrapper.style.transform = (directionEnabled && obj.direction !== null)
-          ? `rotate(${obj.direction + 180}deg)`
-          : "rotate(0deg)";
+        obj.wrapper.style.transform = (directionEnabled && obj.direction !== null) ? `rotate(${obj.direction + 180}deg)` : "rotate(0deg)";
       });
     };
-    document.getElementById("toggleError").onclick = () => {
-      hideErrors = !hideErrors;
-      aktualizujPrzyciskError();
-      aktualizujWidocznośćZnaków();
-    };
-    document.getElementById("toggleDirectionHide").onclick = () => {
-      hideDirection = !hideDirection;
-      aktualizujPrzyciskDirectionHide();
-      aktualizujWidocznośćZnaków();
-    };
 
-    aktualizujPrzyciskDirection();
-    aktualizujPrzyciskError();
-    aktualizujPrzyciskDirectionHide();
+    document.getElementById("searchInput").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        const szukane = this.value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+        znakiMarkery.forEach(obj => {
+          // Sprawdzamy, czy w danym markrze jest jakiś obrazek "nieznany.png"
+          const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
+          const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
+          const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
+
+          const pasuje = szukane.length === 0 || obj.znakiSurowe.some(znak => szukane.some(s => znak.includes(s)));
+          obj.wrapper.style.opacity = (pasuje && !ukrytyPrzezBlad && !ukrytyPrzezDirection) ? "1" : "0";
+          obj.wrapper.style.pointerEvents = (pasuje && !ukrytyPrzezBlad && !ukrytyPrzezDirection) ? "auto" : "none";
+        });
+      }
+    });
+
     document.getElementById("loadSignsButton").onclick = wczytajZnakiDlaObszaru;
+    document.getElementById("closeDetails").onclick = () => document.getElementById("detailsModal").style.display = "none";
 
     function wczytajZnakiDlaObszaru() {
       const bounds = map.getBounds();
@@ -164,14 +296,13 @@
 
       fetch("https://overpass-api.de/api/interpreter", {
         method: "POST",
-        body: query,
+        body: query
       })
       .then(r => r.json())
       .then(data => {
         data.elements.forEach(el => {
-          if (wczytaneID.has(el.id)) return;
+          if (wczytaneID.has(el.id) || !el.tags?.traffic_sign) return;
           wczytaneID.add(el.id);
-          if (!el.tags?.traffic_sign) return;
 
           const znakiSurowe = el.tags.traffic_sign.match(/[^;,\s\[]+(?:\[[^\]]*\])?/g) || [];
           const znaki = znakiSurowe.map(z => z.replace(":", "_"));
@@ -186,43 +317,66 @@
           if (maKierunek) wrapper.style.transform = `rotate(${direction + 180}deg)`;
 
           let totalHeight = 0;
+
           znaki.forEach(znak => {
             const img = document.createElement("img");
-            const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
-            img.src = baseImgUrl + znak + ".png";
-            img.onerror = function () {
-              this.onerror = null;
-              this.src = baseImgUrl + "nieznany.png";
-            };
+            img.src = baseImgUrl + znak + ".png"; // Użycie baseImgUrl
+            img.onerror = () => img.src = baseImgUrl + "nieznany.png"; // Użycie baseImgUrl
 
             let width = "25px";
             if (["T-25a", "T-25b", "T-25c"].some(x => znak.includes(x))) width = "10px";
             else if (["F-6", "F-10"].some(x => znak.includes(x))) width = "40px";
-            else if (["T-18", "T-24", "T-27"].some(x => znak.includes(x))) width = "20px";
-
+            else if (["T-18", "T-24", "T-29"].some(x => znak.includes(x))) width = "20px";
+            
             img.style.width = width;
             img.style.marginBottom = "2px";
             wrapper.appendChild(img);
-            totalHeight += 30;
+            totalHeight += 30; 
           });
 
           wrapper.style.marginTop = `-${totalHeight / 2}px`;
 
           const marker = L.marker([el.lat, el.lon], {
-            icon: L.divIcon({
-              className: "",
-              html: wrapper,
-              iconSize: null,
-              iconAnchor: [5, 0]
-            })
-          }).bindPopup(`
-            <div style="font-weight: bold; font-size: 16px;">
-              Znak(i): ${znakiSurowe.join(", ")}
-            </div>
-            <a href="https://www.openstreetmap.org/node/${el.id}" target="_blank" style="color: blue; font-size: 14px;">
-              link
-            </a>
-          `).addTo(map);
+            icon: L.divIcon({ className: "", html: wrapper, iconSize: null, iconAnchor: [5, 0] })
+          }).addTo(map);
+
+          marker.on("click", () => {
+            const modal = document.getElementById("detailsModal");
+            const imgBox = document.getElementById("detailsImages");
+            const tagBox = document.getElementById("detailsTags");
+
+            imgBox.innerHTML = "";
+            tagBox.innerHTML = ""; 
+
+            // Dodaj link do OSM na górze
+            const osmLink = document.createElement("a");
+            osmLink.href = `https://www.openstreetmap.org/node/${el.id}`;
+            osmLink.target = "_blank";
+            osmLink.classList.add("osm-link"); 
+            osmLink.textContent = "Link"; 
+            tagBox.appendChild(osmLink);
+
+            // Dodaj puste linie po linku dla czytelności
+            tagBox.appendChild(document.createElement("br"));
+            tagBox.appendChild(document.createElement("br"));
+
+
+            znaki.forEach(z => {
+              const img = document.createElement("img");
+              img.src = baseImgUrl + z + ".png"; // Użycie baseImgUrl
+              img.onerror = () => img.src = baseImgUrl + "nieznany.png"; // Użycie baseImgUrl
+              imgBox.appendChild(img);
+            });
+
+            let tagsText = "";
+            for (const [k, v] of Object.entries(el.tags)) {
+              tagsText += `${k} = ${v}\n`;
+            }
+            tagBox.appendChild(document.createTextNode(tagsText));
+
+
+            modal.style.display = "flex";
+          });
 
           znakiMarkery.push({
             marker,
@@ -241,51 +395,25 @@
       const bounds = map.getBounds();
       for (let i = znakiMarkery.length - 1; i >= 0; i--) {
         const obj = znakiMarkery[i];
-        const wZasiegu = bounds.contains(obj.latlng);
+        const widocznyNaMapie = bounds.contains(obj.latlng);
 
-        if (hideOutside && !wZasiegu) {
+        if (hideOutside && !widocznyNaMapie) {
           map.removeLayer(obj.marker);
           znakiMarkery.splice(i, 1);
           wczytaneID.delete(obj.osm_id);
           continue;
         }
 
-        const obrazki = [...obj.wrapper.querySelectorAll("img")];
-        obrazki.forEach(img => {
-          const jestNieznany = img.src.includes("nieznany.png");
-          const ukrytyPrzezBlad = hideErrors && jestNieznany;
-          const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
+        const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
+        const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
+        const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
 
-          img.style.opacity = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "0" : "1";
-          img.style.pointerEvents = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "none" : "auto";
-        });
+        obj.wrapper.style.opacity = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "0" : "1";
+        obj.wrapper.style.pointerEvents = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "none" : "auto";
       }
     }
 
     map.on("moveend zoomend", aktualizujWidocznośćZnaków);
-
-    document.getElementById("searchInput").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        const input = this.value;
-        const szukane = input.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-
-        znakiMarkery.forEach(obj => {
-          if (szukane.length === 0) {
-            const obrazki = [...obj.wrapper.querySelectorAll("img")];
-            const zawieraNieznany = obrazki.some(img => img.src.includes("nieznany.png"));
-            const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
-            const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
-
-            obj.wrapper.style.opacity = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "0" : "1";
-            obj.wrapper.style.pointerEvents = (ukrytyPrzezBlad || ukrytyPrzezDirection) ? "none" : "auto";
-          } else {
-            const pasuje = obj.znakiSurowe.some(znak => szukane.some(szukany => znak.includes(szukany)));
-            obj.wrapper.style.opacity = pasuje ? "1" : "0";
-            obj.wrapper.style.pointerEvents = pasuje ? "auto" : "none";
-          }
-        });
-      }
-    });
   </script>
 </body>
 </html>
