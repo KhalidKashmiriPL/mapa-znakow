@@ -66,29 +66,27 @@
       transition: background-color 0.3s ease, color 0.3s ease;
     }
 
-    /* Domyślne style dla przycisku Wczytaj znaki z widoku (czerwony) */
     #loadSignsButton {
-        background-color: #e63946; /* Czerwony */
+        background-color: #e63946;
         color: white;
     }
 
     #loadSignsButton:hover {
-        background-color: #f28b82; /* Jaśniejszy czerwony na hover */
+        background-color: #f28b82;
     }
 
-    /* Style dla przycisków cyjanowych (Ukryj błędne znaki, Ukryj znaki z direction) */
     .cyan-toggle-button {
-        background-color: #00a4ba; /* Cyjan */
+        background-color: #00a4ba;
         color: white;
     }
 
     .cyan-toggle-button:hover {
-        background-color: #3ed4e8; /* Jaśniejszy cyjan na hover */
+        background-color: #3ed4e8;
     }
 
     .cyan-toggle-button.active {
-        background-color: #8bf1ff; /* Bardzo jasny cyjan (prawie biały) gdy aktywny */
-        color: white; /* Ciemniejszy tekst dla kontrastu */
+        background-color: #8bf1ff;
+        color: white;
     }
     
     #detailsModal {
@@ -220,13 +218,24 @@
     let hideDirection = false;
     let hideOutside = false;
 
-    // Bazowy URL do obrazków znaków
     const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
+    
+    function getSignImagePath(signCode) {
+      const firstChar = signCode.charAt(0);
+      let directory = "";
+
+      if (firstChar.match(/[A-Z]/)) {
+        directory = `${firstChar}/`;
+      } else if (firstChar === 'T' && signCode.length > 1 && signCode.charAt(1) === '-') {
+            directory = 'T/';
+        }
+      return `${directory}PL_${signCode}.png`;
+    }
+
 
     const toggleErrorButton = document.getElementById("toggleError");
     const toggleDirectionHideButton = document.getElementById("toggleDirectionHide");
 
-    // Funkcja do aktualizacji wyglądu przycisków
     function updateButtonAppearance(button, isActive) {
       if (isActive) {
         button.classList.add("active");
@@ -235,7 +244,6 @@
       }
     }
 
-    // Inicjalne ustawienie wyglądu przycisków
     updateButtonAppearance(toggleErrorButton, hideErrors);
     updateButtonAppearance(toggleDirectionHideButton, hideDirection);
 
@@ -244,17 +252,15 @@
       aktualizujWidocznośćZnaków();
     };
 
-    // Obsługa kliknięcia przycisku "Ukryj błędne znaki"
     toggleErrorButton.onclick = () => {
-      hideErrors = !hideErrors; // Przełącz stan
-      updateButtonAppearance(toggleErrorButton, hideErrors); // Zaktualizuj wygląd przycisku
+      hideErrors = !hideErrors; 
+      updateButtonAppearance(toggleErrorButton, hideErrors); 
       aktualizujWidocznośćZnaków();
     };
 
-    // Obsługa kliknięcia przycisku "Ukryj znaki z direction"
     toggleDirectionHideButton.onclick = () => {
-      hideDirection = !hideDirection; // Przełącz stan
-      updateButtonAppearance(toggleDirectionHideButton, hideDirection); // Zaktualizuj wygląd przycisku
+      hideDirection = !hideDirection; 
+      updateButtonAppearance(toggleDirectionHideButton, hideDirection); 
       aktualizujWidocznośćZnaków();
     };
 
@@ -269,7 +275,6 @@
       if (e.key === "Enter") {
         const szukane = this.value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
         znakiMarkery.forEach(obj => {
-          // Sprawdzamy, czy w danym markrze jest jakiś obrazek "nieznany.png"
           const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
           const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
           const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
@@ -304,8 +309,13 @@
           if (wczytaneID.has(el.id) || !el.tags?.traffic_sign) return;
           wczytaneID.add(el.id);
 
-          const znakiSurowe = el.tags.traffic_sign.match(/[^;,\s\[]+(?:\[[^\]]*\])?/g) || [];
-          const znaki = znakiSurowe.map(z => z.replace(":", "_"));
+          const znakiSurowe = el.tags.traffic_sign.split(/;|\s*,\s*/).map(s => s.trim()).filter(Boolean);
+          
+          if (znakiSurowe.length === 0) {
+            wczytaneID.delete(el.id); 
+            return;
+          }
+
           const direction = parseFloat(el.tags.direction);
           const maKierunek = directionEnabled && !isNaN(direction);
 
@@ -318,15 +328,22 @@
 
           let totalHeight = 0;
 
-          znaki.forEach(znak => {
+          znakiSurowe.forEach(znakSurowy => {
             const img = document.createElement("img");
-            img.src = baseImgUrl + znak + ".png"; // Użycie baseImgUrl
-            img.onerror = () => img.src = baseImgUrl + "nieznany.png"; // Użycie baseImgUrl
+            let finalSignCode = znakSurowy;
+
+            if (znakSurowy.startsWith("PL:")) {
+              finalSignCode = znakSurowy.substring(3);
+              img.src = baseImgUrl + getSignImagePath(finalSignCode);
+              img.onerror = () => img.src = baseImgUrl + "nieznany.png";
+            } else {
+              img.src = baseImgUrl + "nieznany.png";
+            }
 
             let width = "25px";
-            if (["T-25a", "T-25b", "T-25c"].some(x => znak.includes(x))) width = "10px";
-            else if (["F-6", "F-10"].some(x => znak.includes(x))) width = "40px";
-            else if (["T-18", "T-24", "T-29"].some(x => znak.includes(x))) width = "20px";
+            if (["T-25a", "T-25b", "T-25c"].some(x => finalSignCode.includes(x))) width = "10px";
+            else if (["F-6", "F-10"].some(x => finalSignCode.includes(x))) width = "40px";
+            else if (["T-18", "T-24", "T-29"].some(x => finalSignCode.includes(x))) width = "20px";
             
             img.style.width = width;
             img.style.marginBottom = "2px";
@@ -348,7 +365,6 @@
             imgBox.innerHTML = "";
             tagBox.innerHTML = ""; 
 
-            // Dodaj link do OSM na górze
             const osmLink = document.createElement("a");
             osmLink.href = `https://www.openstreetmap.org/node/${el.id}`;
             osmLink.target = "_blank";
@@ -356,15 +372,21 @@
             osmLink.textContent = "Link"; 
             tagBox.appendChild(osmLink);
 
-            // Dodaj puste linie po linku dla czytelności
             tagBox.appendChild(document.createElement("br"));
             tagBox.appendChild(document.createElement("br"));
 
 
-            znaki.forEach(z => {
+            znakiSurowe.forEach(znakSurowy => {
               const img = document.createElement("img");
-              img.src = baseImgUrl + z + ".png"; // Użycie baseImgUrl
-              img.onerror = () => img.src = baseImgUrl + "nieznany.png"; // Użycie baseImgUrl
+              let finalSignCode = znakSurowy;
+
+              if (znakSurowy.startsWith("PL:")) {
+                finalSignCode = znakSurowy.substring(3);
+                img.src = baseImgUrl + getSignImagePath(finalSignCode);
+                img.onerror = () => img.src = baseImgUrl + "nieznany.png"; 
+              } else {
+                img.src = baseImgUrl + "nieznany.png"; 
+              }
               imgBox.appendChild(img);
             });
 
@@ -382,7 +404,7 @@
             marker,
             direction: isNaN(direction) ? null : direction,
             wrapper,
-            znakiSurowe,
+            znakiSurowe: znakiSurowe, 
             latlng: L.latLng(el.lat, el.lon),
             osm_id: el.id
           });
