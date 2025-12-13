@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
@@ -23,6 +22,8 @@
       background: rgba(255, 255, 255, 0.8);
       padding: 2px 6px;
       border-radius: 4px;
+      display: flex;
+      gap: 10px;
     }
 
     .control-panel {
@@ -125,6 +126,13 @@
       margin-bottom: 10px;
     }
 
+    .sign-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
     #detailsTags {
       flex: 2;
       padding-left: 20px;
@@ -178,7 +186,11 @@
 </head>
 <body>
   <div id="map"></div>
-  <div class="version-label">v0.1.7</div>
+  <div class="version-label">
+    <span>v0.1.8</span>
+    <span id="nodeCount">Ilość punktów: 0</span>
+    <span id="signCount">Ilość znaków: 0</span>
+  </div>
 
     <div class="search-container">
     <input type="text" id="searchInput" placeholder="Wpisz kod(y) znaków np. &quot;D-6b&quot; lub &quot;D-6b, A-7&quot;" />
@@ -202,280 +214,403 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const map = L.map("map").setView([52.2297, 21.0122], 13);
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+ <script>
+ const map = L.map("map").setView([52.2297, 21.0122], 13);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap",
-      maxZoom: 22
-    }).addTo(map);
+   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+     attribution: "© OpenStreetMap",
+     maxZoom: 22
+   }).addTo(map);
 
-    const znakiMarkery = [];
-    const wczytaneID = new Set();
+   const znakiMarkery = [];
+   const wczytaneID = new Set();
+   let szukaneZnaki = []; 
 
-    let directionEnabled = true;
-    let hideErrors = false;
-    let hideDirection = false;
-    let hideCorrect = false; 
-    let hideOutside = false;
+   let directionEnabled = true;
+   let hideErrors = false;
+   let hideDirection = false;
+   let hideCorrect = false;
+   let hideOutside = false;
 
-    const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
+   const baseImgUrl = "https://khalidkashmiripl.github.io/mapa-znakow/";
 
-    function getSignImagePath(signCode) {
-      const firstChar = signCode.charAt(0);
-      let directory = "";
+   const BASE_SIGN_WIDTH_PX = 30; 
+   const MAP_SCALE_FACTOR = 25 / BASE_SIGN_WIDTH_PX; 
+   const MENU_SCALE_FACTOR = 100 / BASE_SIGN_WIDTH_PX; 
 
-      if (firstChar.match(/[A-Z]/)) {
-        directory = `${firstChar}/`;
-      } else if (firstChar === 'T' && signCode.length > 1 && signCode.charAt(1) === '-') {
-            directory = 'T/';
-        }
-      return `${directory}PL_${signCode}.png`;
-    }
+   function getSignImagePath(signCode) {
+     const firstChar = signCode.charAt(0);
+     let directory = "";
 
-
-    const toggleErrorButton = document.getElementById("toggleError");
-    const toggleDirectionHideButton = document.getElementById("toggleDirectionHide");
-    const toggleCorrectButton = document.getElementById("toggleCorrect"); 
-
-    function updateButtonAppearance(button, isActive) {
-      if (isActive) {
-        button.classList.add("active");
-      } else {
-        button.classList.remove("active");
-      }
-    }
-
-    updateButtonAppearance(toggleErrorButton, hideErrors);
-    updateButtonAppearance(toggleDirectionHideButton, hideDirection);
-    updateButtonAppearance(toggleCorrectButton, hideCorrect); 
-
-    document.getElementById("hideOutsideCheckbox").onchange = e => {
-      hideOutside = e.target.checked;
-      aktualizujWidocznośćZnaków();
-    };
-
-    toggleErrorButton.onclick = () => {
-      hideErrors = !hideErrors; 
-      updateButtonAppearance(toggleErrorButton, hideErrors); 
-      aktualizujWidocznośćZnaków();
-    };
-
-    toggleDirectionHideButton.onclick = () => {
-      hideDirection = !hideDirection; 
-      updateButtonAppearance(toggleDirectionHideButton, hideDirection); 
-      aktualizujWidocznośćZnaków();
-    };
-
-    toggleCorrectButton.onclick = () => {
-      hideCorrect = !hideCorrect;
-      updateButtonAppearance(toggleCorrectButton, hideCorrect);
-      aktualizujWidocznośćZnaków();
-    };
-
-    document.getElementById("rotateCheckbox").onchange = e => {
-      directionEnabled = e.target.checked;
-      znakiMarkery.forEach(obj => {
-        obj.wrapper.style.transform = (directionEnabled && obj.direction !== null) ? `rotate(${obj.direction + 180}deg)` : "rotate(0deg)";
-      });
-    };
-
-    document.getElementById("searchInput").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        const szukane = this.value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
-        znakiMarkery.forEach(obj => {
-          const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
-          const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
-          const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
-          const ukrytyPrzezPoprawne = hideCorrect && !zawieraNieznany;
-
-          const pasuje = szukane.length === 0 || obj.znakiSurowe.some(znak => szukane.some(s => znak.includes(s)));
-          obj.wrapper.style.opacity = (pasuje && !ukrytyPrzezBlad && !ukrytyPrzezDirection && !ukrytyPrzezPoprawne) ? "1" : "0";
-          obj.wrapper.style.pointerEvents = (pasuje && !ukrytyPrzezBlad && !ukrytyPrzezDirection && !ukrytyPrzezPoprawne) ? "auto" : "none";
-        });
-      }
-    });
-
-    document.getElementById("loadSignsButton").onclick = wczytajZnakiDlaObszaru;
-    document.getElementById("closeDetails").onclick = () => document.getElementById("detailsModal").style.display = "none";
-
-    function wczytajZnakiDlaObszaru() {
-      const bounds = map.getBounds();
-      const query = `
-        [out:json][timeout:25];
-        (
-          node["traffic_sign"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-        );
-        out body;
-      `;
-
-      fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: query
-      })
-      .then(r => r.json())
-      .then(data => {
-        data.elements.forEach(el => {
-          if (wczytaneID.has(el.id) || !el.tags?.traffic_sign) return;
-          wczytaneID.add(el.id);
-          
-          const znakiSurowe = el.tags.traffic_sign.split(/;|\s*,(?![^\[]*\])\s*/).map(s => s.trim()).filter(Boolean);
-          
-          if (znakiSurowe.length === 0) {
-            wczytaneID.delete(el.id); 
-            return;
-          }
-
-          const direction = parseFloat(el.tags.direction);
-          const maKierunek = directionEnabled && !isNaN(direction);
-
-          const wrapper = document.createElement("div");
-          wrapper.classList.add("rotated");
-          wrapper.style.display = "flex";
-          wrapper.style.flexDirection = "column";
-          wrapper.style.alignItems = "center";
-          if (maKierunek) wrapper.style.transform = `rotate(${direction + 180}deg)`;
-
-          let totalHeight = 0;
-
-          znakiSurowe.forEach(znakSurowy => {
-            const img = document.createElement("img");
-            let finalSignCode = znakSurowy; 
-
-            if (znakSurowy.startsWith("PL:")) {
-              finalSignCode = znakSurowy.substring(3); 
-              img.src = baseImgUrl + getSignImagePath(finalSignCode);
-              img.onerror = () => img.src = baseImgUrl + "nieznany.png"; 
-            } else {
-              img.src = baseImgUrl + "nieznany.png"; 
-            }
-
-            let width = "25px";
-            if (["T-25a", "T-25b", "T-25c"].some(x => finalSignCode.includes(x))) width = "10px";
-            else if (["F-6", "F-10"].some(x => finalSignCode.includes(x))) width = "40px";
-            else if (["T-18", "T-24", "T-29"].some(x => finalSignCode.includes(x))) width = "20px";
-            
-            img.style.width = width;
-            img.style.marginBottom = "2px";
-            wrapper.appendChild(img);
-            totalHeight += 30; 
-          });
-
-          wrapper.style.marginTop = `-${totalHeight / 2}px`;
-
-          const marker = L.marker([el.lat, el.lon], {
-            icon: L.divIcon({ className: "", html: wrapper, iconSize: null, iconAnchor: [5, 0] })
-          }).addTo(map);
-
-          marker.on("click", () => {
-            const modal = document.getElementById("detailsModal");
-            const imgBox = document.getElementById("detailsImages");
-            const tagBox = document.getElementById("detailsTags");
-
-            imgBox.innerHTML = "";
-            tagBox.innerHTML = ""; 
-
-            const osmLink = document.createElement("a");
-            osmLink.href = `https://www.openstreetmap.org/node/${el.id}`;
-            osmLink.target = "_blank";
-            osmLink.classList.add("osm-link"); 
-            osmLink.textContent = "Link"; 
-            tagBox.appendChild(osmLink);
-
-            tagBox.appendChild(document.createElement("br"));
-            tagBox.appendChild(document.createElement("br"));
+     if (firstChar.match(/[A-Z]/)) {
+       directory = `${firstChar}/`;
+     } else if (firstChar === 'T' && signCode.length > 1 && signCode.charAt(1) === '-') {
+       directory = 'T/';
+     }
+     return `${directory}PL_${signCode}.png`;
+   }
 
 
-            znakiSurowe.forEach(znakSurowy => {
-              const img = document.createElement("img");
-              let finalSignCode = znakSurowy;
+   const toggleErrorButton = document.getElementById("toggleError");
+   const toggleDirectionHideButton = document.getElementById("toggleDirectionHide");
+   const toggleCorrectButton = document.getElementById("toggleCorrect");
+   const searchInput = document.getElementById("searchInput");
 
-              if (znakSurowy.startsWith("PL:")) {
-                finalSignCode = znakSurowy.substring(3);
-                img.src = baseImgUrl + getSignImagePath(finalSignCode);
-                img.onerror = () => img.src = baseImgUrl + "nieznany.png"; 
-              } else {
-                img.src = baseImgUrl + "nieznany.png"; 
-              }
-              imgBox.appendChild(img);
-            });
+   const nodeCountSpan = document.getElementById("nodeCount");
+   const signCountSpan = document.getElementById("signCount");
 
-            let tagsText = "";
-            for (const [k, v] of Object.entries(el.tags)) {
-              tagsText += `${k} = ${v}\n`;
-            }
-            tagBox.appendChild(document.createTextNode(tagsText));
+   function updateCounts() {
+     const visibleMarkers = znakiMarkery.filter(obj => obj.wrapper.style.opacity === "1");
+     nodeCountSpan.textContent = `Ilość punktów: ${visibleMarkers.length}`;
+
+     let totalSigns = 0;
+     visibleMarkers.forEach(obj => {
+       totalSigns += obj.znakiSurowe.length;
+     });
+     signCountSpan.textContent = `Ilość znaków: ${totalSigns}`;
+   }
+
+   function updateButtonAppearance(button, isActive) {
+     if (isActive) {
+       button.classList.add("active");
+     } else {
+       button.classList.remove("active");
+     }
+   }
+
+   updateButtonAppearance(toggleErrorButton, hideErrors);
+   updateButtonAppearance(toggleDirectionHideButton, hideDirection);
+   updateButtonAppearance(toggleCorrectButton, hideCorrect);
+
+   document.getElementById("hideOutsideCheckbox").onchange = e => {
+     hideOutside = e.target.checked;
+     aktualizujWidocznośćZnaków();
+   };
+
+   toggleErrorButton.onclick = () => {
+     hideErrors = !hideErrors;
+     updateButtonAppearance(toggleErrorButton, hideErrors);
+     aktualizujWidocznośćZnaków();
+   };
+
+   toggleDirectionHideButton.onclick = () => {
+     hideDirection = !hideDirection;
+     updateButtonAppearance(toggleDirectionHideButton, hideDirection);
+     aktualizujWidocznośćZnaków();
+   };
+
+   toggleCorrectButton.onclick = () => {
+     hideCorrect = !hideCorrect;
+     updateButtonAppearance(toggleCorrectButton, hideCorrect);
+     aktualizujWidocznośćZnaków();
+   };
+
+   document.getElementById("rotateCheckbox").onchange = e => {
+     directionEnabled = e.target.checked;
+     znakiMarkery.forEach(obj => {
+       
+       obj.wrapper.style.transform = "rotate(0deg)";
+
+       
+       if (directionEnabled && obj.mainDirection !== null) {
+         obj.wrapper.style.transform = `rotate(${obj.mainDirection + 180}deg)`;
+       }
+       
+       obj.directionsData.forEach(dirGroup => {
+         if (!directionEnabled || dirGroup.direction === null) {
+           dirGroup.groupContainer.style.transform = "rotate(0deg)";
+           dirGroup.groupContainer.style.transformOrigin = 'center center';
+         } else if (obj.mainDirection !== null) {
+           
+           dirGroup.groupContainer.style.transform = `rotate(${dirGroup.direction - obj.mainDirection}deg)`;
+           dirGroup.groupContainer.style.transformOrigin = 'center center';
+         } else {
+           
+           dirGroup.groupContainer.style.transform = `rotate(${dirGroup.direction + 180}deg)`;
+           dirGroup.groupContainer.style.transformOrigin = 'center center';
+         }
+       });
+     });
+   };
+
+   searchInput.addEventListener("input", function() {
+     szukaneZnaki = this.value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+     aktualizujWidocznośćZnaków(); 
+   });
+
+   document.getElementById("loadSignsButton").onclick = wczytajZnakiDlaObszaru;
+   document.getElementById("closeDetails").onclick = () => document.getElementById("detailsModal").style.display = "none";
+
+   function wczytajZnakiDlaObszaru() {
+     const bounds = map.getBounds();
+     const query = `
+       [out:json][timeout:25];
+       (
+         node["traffic_sign"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+       );
+       out body;
+     `;
+
+     fetch("https://overpass-api.de/api/interpreter", {
+       method: "POST",
+       body: query
+     })
+     .then(r => r.json())
+     .then(data => {
+       data.elements.forEach(el => {
+         if (wczytaneID.has(el.id) || !el.tags?.traffic_sign) return;
+         wczytaneID.add(el.id);
+
+         const znakiSurowe = el.tags.traffic_sign.split(/;|\s*,(?![^\[]*\])\s*/).map(s => s.trim()).filter(Boolean);
+
+         if (znakiSurowe.length === 0) {
+           wczytaneID.delete(el.id);
+           return;
+         }
+
+         const directionTag = el.tags.direction;
+         const hasDirectionTag = typeof directionTag === 'string' && directionTag.length > 0;
+
+         const directions = hasDirectionTag ? directionTag.split(';').map(d => parseFloat(d.trim())) : [null];
+         const mainDirection = directions.find(d => !isNaN(d)) || null;
+
+         const signsByDirection = new Map();
+         if (directions.length === 1 && directions[0] === null) {
+           signsByDirection.set(null, znakiSurowe);
+         } else {
+           znakiSurowe.forEach((sign, index) => {
+             const dirIndex = Math.min(index, directions.length - 1);
+             const currentDirection = isNaN(directions[dirIndex]) ? null : directions[dirIndex];
+             if (!signsByDirection.has(currentDirection)) {
+               signsByDirection.set(currentDirection, []);
+             }
+             signsByDirection.get(currentDirection).push(sign);
+           });
+         }
+
+         const sortedDirections = Array.from(signsByDirection.keys()).sort((a, b) => {
+           if (a === null) return 1;
+           if (b === null) return -1;
+           return a - b;
+         });
+
+         const wrapper = document.createElement("div");
+         wrapper.classList.add("rotated");
+         wrapper.style.display = "flex";
+         wrapper.style.flexDirection = "column";
+         wrapper.style.alignItems = "center";
+         wrapper.style.transformOrigin = 'center center';
+
+         if (directionEnabled && mainDirection !== null) {
+           wrapper.style.transform = `rotate(${mainDirection + 180}deg)`;
+         }
+
+         let totalHeight = 0;
+         const directionsData = [];
+
+         sortedDirections.forEach((dir, index) => {
+           const signsForThisDirection = signsByDirection.get(dir);
+           const groupContainer = document.createElement('div');
+           groupContainer.style.display = 'flex';
+           groupContainer.style.flexDirection = 'column';
+           groupContainer.style.alignItems = 'center';
+           groupContainer.classList.add('rotated');
+           groupContainer.style.transformOrigin = 'center center';
+           if (directionEnabled && dir !== null) {
+            if (mainDirection !== null) {
+               
+               groupContainer.style.transform = `rotate(${dir - mainDirection}deg)`;
+             } else {
+               
+               groupContainer.style.transform = `rotate(${dir + 180}deg)`;
+             }
+             groupContainer.style.transformOrigin = 'center center';
+           } else {
+             groupContainer.style.transform = "rotate(0deg)";
+             groupContainer.style.transformOrigin = 'center center';
+           }
+
+           signsForThisDirection.forEach(znakSurowy => {
+             const img = document.createElement("img");
+             let finalSignCode = znakSurowy;
+
+             if (znakSurowy.startsWith("PL:")) {
+               finalSignCode = znakSurowy.substring(3);
+               img.src = baseImgUrl + getSignImagePath(finalSignCode);
+               img.onerror = () => img.src = baseImgUrl + "nieznany.png";
+             } else {
+               img.src = baseImgUrl + "nieznany.png";
+             }
+
+             
+             let signBaseWidth = BASE_SIGN_WIDTH_PX;
+             if (["T-25a", "T-25b", "T-25c"].some(x => finalSignCode.includes(x))) signBaseWidth = 10;
+             else if (["F-6", "F-10"].some(x => finalSignCode.includes(x))) signBaseWidth = 40;
+             else if (["T-18", "T-24"].some(x => finalSignCode.includes(x))) signBaseWidth = 20;
+             else if (["T-27"].some(x => finalSignCode.includes(x))) signBaseWidth = 25;
+
+             let mapSignWidthPx = signBaseWidth * MAP_SCALE_FACTOR; 
+
+             img.style.width = `${mapSignWidthPx}px`;
+             img.style.marginBottom = "2px";
+             groupContainer.appendChild(img);
+
+             totalHeight += (signBaseWidth / BASE_SIGN_WIDTH_PX) * 30 * MAP_SCALE_FACTOR; 
+           });
+
+           wrapper.appendChild(groupContainer);
+           directionsData.push({ direction: dir, groupContainer: groupContainer });
+         });
+
+         wrapper.style.marginTop = `-${totalHeight / 2}px`;
+
+         const marker = L.marker([el.lat, el.lon], {
+           icon: L.divIcon({ className: "", html: wrapper, iconSize: null, iconAnchor: [5, 0] })
+         }).addTo(map);
+
+         marker.on("click", () => {
+           const modal = document.getElementById("detailsModal");
+           const imgBox = document.getElementById("detailsImages");
+           const tagBox = document.getElementById("detailsTags");
+
+           imgBox.innerHTML = "";
+           tagBox.innerHTML = "";
+
+           const osmLink = document.createElement("a");
+           osmLink.href = `https://www.openstreetmap.org/node/${el.id}`;
+           osmLink.target = "_blank";
+           osmLink.classList.add("osm-link");
+           osmLink.textContent = "Link do OSM";
+           tagBox.appendChild(osmLink);
+
+           tagBox.appendChild(document.createElement("br"));
+           tagBox.appendChild(document.createElement("br"));
+
+           sortedDirections.forEach((dir, index) => {
+             const signsForThisDirection = signsByDirection.get(dir);
+             const signGroupDiv = document.createElement('div');
+             signGroupDiv.classList.add('sign-group');
+
+             if (dir !== null) {
+               const directionLabel = document.createElement('div');
+               directionLabel.textContent = `Kierunek: ${dir}°`;
+               directionLabel.style.fontWeight = 'bold';
+               signGroupDiv.appendChild(directionLabel);
+             }
+
+             signsForThisDirection.forEach(znakSurowy => {
+               const img = document.createElement("img");
+               let finalSignCode = znakSurowy;
+
+               if (znakSurowy.startsWith("PL:")) {
+                 finalSignCode = znakSurowy.substring(3);
+                 img.src = baseImgUrl + getSignImagePath(finalSignCode);
+                 img.onerror = () => img.src = baseImgUrl + "nieznany.png";
+               } else {
+                 img.src = baseImgUrl + "nieznany.png";
+               }
+
+               
+               let signBaseWidth = BASE_SIGN_WIDTH_PX;
+               if (["T-25a", "T-25b", "T-25c"].some(x => finalSignCode.includes(x))) signBaseWidth = 10;
+               else if (["F-6", "F-10"].some(x => finalSignCode.includes(x))) signBaseWidth = 40;
+               else if (["T-18", "T-24", "T-27"].some(x => finalSignCode.includes(x))) signBaseWidth = 20;
+
+               const menuSignWidthPx = signBaseWidth * MENU_SCALE_FACTOR; 
+
+               img.style.width = `${menuSignWidthPx}px`;
+               img.style.height = 'auto';
+
+               signGroupDiv.appendChild(img);
+             });
+             imgBox.appendChild(signGroupDiv);
+           });
+
+           let tagsText = "";
+           for (const [k, v] of Object.entries(el.tags)) {
+             tagsText += `${k} = ${v}\n`;
+           }
+           tagBox.appendChild(document.createTextNode(tagsText));
 
 
-            modal.style.display = "flex";
-          });
+           modal.style.display = "flex";
+         });
 
-          znakiMarkery.push({
-            marker,
-            direction: isNaN(direction) ? null : direction,
-            wrapper,
-            znakiSurowe: znakiSurowe, 
-            latlng: L.latLng(el.lat, el.lon),
-            osm_id: el.id
-          });
-        });
-        aktualizujWidocznośćZnaków();
-      });
-    }
+         znakiMarkery.push({
+           marker,
+           mainDirection: mainDirection,
+           wrapper,
+           directionsData,
+           znakiSurowe: znakiSurowe,
+           latlng: L.latLng(el.lat, el.lon),
+           osm_id: el.id,
+           hasDirectionTag: hasDirectionTag
+         });
+       });
+       aktualizujWidocznośćZnaków();
+       updateCounts();
+     });
+   }
 
-    function aktualizujWidocznośćZnaków() {
-      const bounds = map.getBounds();
-      for (let i = znakiMarkery.length - 1; i >= 0; i--) {
-        const obj = znakiMarkery[i];
-        const widocznyNaMapie = bounds.contains(obj.latlng);
+   function aktualizujWidocznośćZnaków() {
+     const bounds = map.getBounds();
+     for (let i = znakiMarkery.length - 1; i >= 0; i--) {
+       const obj = znakiMarkery[i];
+       const widocznyNaMapie = bounds.contains(obj.latlng);
 
-        if (hideOutside && !widocznyNaMapie) {
-          map.removeLayer(obj.marker);
-          znakiMarkery.splice(i, 1);
-          wczytaneID.delete(obj.osm_id);
-          continue;
-        }
+       if (hideOutside && !widocznyNaMapie) {
+         map.removeLayer(obj.marker);
+         znakiMarkery.splice(i, 1);
+         wczytaneID.delete(obj.osm_id);
+         continue;
+       }
 
-        const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
-        const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
-        const ukrytyPrzezDirection = hideDirection && obj.direction !== null;
-        const ukrytyPrzezPoprawne = hideCorrect && !zawieraNieznany;
+       const zawieraNieznany = [...obj.wrapper.querySelectorAll("img")].some(img => img.src.includes(baseImgUrl + "nieznany.png"));
+       const ukrytyPrzezBlad = hideErrors && zawieraNieznany;
+       const ukrytyPrzezDirection = hideDirection && obj.hasDirectionTag;
+       const ukrytyPrzezPoprawne = hideCorrect && !zawieraNieznany;
 
-        const shouldBeVisible = !ukrytyPrzezBlad && !ukrytyPrzezDirection && !ukrytyPrzezPoprawne;
-        obj.wrapper.style.opacity = shouldBeVisible ? "1" : "0";
-        obj.wrapper.style.pointerEvents = shouldBeVisible ? "auto" : "none";
-      }
-    }
+       const pasujeDoWyszukiwania = szukaneZnaki.length === 0 || obj.znakiSurowe.some(znak => szukaneZnaki.some(s => znak.toLowerCase().includes(s.toLowerCase())));
 
-    map.on("moveend zoomend", aktualizujWidocznośćZnaków);
+       const shouldBeVisible = pasujeDoWyszukiwania && !ukrytyPrzezBlad && !ukrytyPrzezDirection && !ukrytyPrzezPoprawne;
+       obj.wrapper.style.opacity = shouldBeVisible ? "1" : "0";
+       obj.wrapper.style.pointerEvents = shouldBeVisible ? "auto" : "none";
+     }
+     updateCounts();
+   }
 
-    document.addEventListener("keydown", (e) => {
-      if (e.target.tagName === "INPUT") {
-        return;
-      }
-      switch (e.key) {
-        case "q":
-          document.getElementById("loadSignsButton").click();
-          break;
-        case "w":
-          document.getElementById("hideOutsideCheckbox").checked = !document.getElementById("hideOutsideCheckbox").checked;
-          document.getElementById("hideOutsideCheckbox").dispatchEvent(new Event('change'));
-          break;
-        case "e":
-          document.getElementById("rotateCheckbox").checked = !document.getElementById("rotateCheckbox").checked;
-          document.getElementById("rotateCheckbox").dispatchEvent(new Event('change'));
-          break;
-        case "a":
-          document.getElementById("toggleError").click();
-          break;
-        case "s":
-          document.getElementById("toggleDirectionHide").click();
-          break;
-        case "d":
-          document.getElementById("toggleCorrect").click();
-          break;
-      }
-    });
-  </script>
+   map.on("moveend zoomend", aktualizujWidocznośćZnaków);
+
+   document.addEventListener("keydown", (e) => {
+     if (e.target.tagName === "INPUT") {
+       return;
+     }
+     switch (e.key) {
+       case "q":
+         document.getElementById("loadSignsButton").click();
+         break;
+       case "w":
+         document.getElementById("hideOutsideCheckbox").checked = !document.getElementById("hideOutsideCheckbox").checked;
+         document.getElementById("hideOutsideCheckbox").dispatchEvent(new Event('change'));
+         break;
+       case "e":
+         document.getElementById("rotateCheckbox").checked = !document.getElementById("rotateCheckbox").checked;
+         document.getElementById("rotateCheckbox").dispatchEvent(new Event('change'));
+         break;
+       case "a":
+         document.getElementById("toggleError").click();
+         break;
+       case "s":
+         document.getElementById("toggleDirectionHide").click();
+         break;
+       case "d":
+         document.getElementById("toggleCorrect").click();
+         break;
+     }
+   });
+   aktualizujWidocznośćZnaków();
+   updateCounts();
+ </script>
 </body>
 </html>
